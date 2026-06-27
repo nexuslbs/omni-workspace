@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Home — Flask Blog{% endblock %}
+{% block content %}
+<h1>Posts</h1>
+<div id="posts-list"></div>
+
+<script>
+    function loadPosts() {
+        fetch('/api/posts')
+            .then(r => r.json())
+            .then(posts => {
+                const container = document.getElementById('posts-list');
+                if (posts.length === 0) {
+                    container.innerHTML = '<p class="card">No posts yet. <a href="/login">Login</a> to create one.</p>';
+                    return;
+                }
+                container.innerHTML = posts.map(p => `
+                    <div class="card">
+                        <h3><a href="/posts/${p.id}" style="color:#2c3e50;text-decoration:none">${escapeHtml(p.title)}</a></h3>
+                        <div class="meta">By ${escapeHtml(p.author)} — ${new Date(p.created_at).toLocaleString()}</div>
+                        <div class="content">${escapeHtml(p.content_preview || p.content.substring(0, 200))}${p.content.length > 200 ? '...' : ''}</div>
+                    </div>
+                `).join('');
+            });
+    }
+
+    function escapeHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    loadPosts();
+</script>
+{% endblock %}

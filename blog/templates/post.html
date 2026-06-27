@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Post — Flask Blog{% endblock %}
+{% block content %}
+<div id="post-container"></div>
+<div id="comments-container"></div>
+<div id="comment-form-container" style="display:none">
+    <h3>Add a Comment</h3>
+    <form id="comment-form">
+        <textarea id="comment-content" placeholder="Write your comment..." required></textarea>
+        <button type="submit">Post Comment</button>
+    </form>
+</div>
+<div id="comment-message"></div>
+<p style="margin-top:1rem"><a href="/">← Back to all posts</a></p>
+
+<script>
+    const postId = {{ post_id }};
+
+    function loadPost() {
+        fetch('/api/posts/' + postId)
+            .then(r => r.json())
+            .then(post => {
+                document.getElementById('post-container').innerHTML = `
+                    <div class="card">
+                        <h2>${escapeHtml(post.title)}</h2>
+                        <div class="meta">By ${escapeHtml(post.author)} — ${new Date(post.created_at).toLocaleString()}</div>
+                        <div class="content">${post.content_html}</div>
+                    </div>
+                `;
+            });
+    }
+
+    function loadComments() {
+        fetch('/api/posts/' + postId + '/comments')
+            .then(r => r.json())
+            .then(comments => {
+                const container = document.getElementById('comments-container');
+                if (comments.length === 0) {
+                    container.innerHTML = '<h3>Comments</h3><p>No comments yet.</p>';
+                } else {
+                    container.innerHTML = '<h3>Comments</h3>' + comments.map(c => `
+                        <div class="comment">
+                            <div class="meta">${escapeHtml(c.author)} — ${new Date(c.created_at).toLocaleString()}</div>
+                            <div>${escapeHtml(c.content)}</div>
+                        </div>
+                    `).join('');
+                }
+            });
+    }
+
+    fetch('/api/me').then(r => r.json()).then(data => {
+        if (data.authenticated) {
+            document.getElementById('comment-form-container').style.display = 'block';
+        }
+    });
+
+    document.getElementById('comment-form')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const content = document.getElementById('comment-content').value;
+        fetch('/api/posts/' + postId + '/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+        })
+        .then(r => r.json().then(data => ({ status: r.status, body: data })))
+        .then(({ status, body }) => {
+            const msg = document.getElementById('comment-message');
+            if (status === 201) {
+                document.getElementById('comment-content').value = '';
+                msg.innerHTML = '<div class="flash success">Comment added!</div>';
+                loadComments();
+            } else {
+                msg.innerHTML = '<div class="flash error">' + (body.error || 'Failed to add comment') + '</div>';
+            }
+        });
+    });
+
+    function escapeHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    loadPost();
+    loadComments();
+</script>
+{% endblock %}
